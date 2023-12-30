@@ -11,6 +11,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.savedrequest.SavedRequest;
 
 
 @Configuration
@@ -21,6 +24,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests((authorize) -> authorize
+                        .requestMatchers("/login").permitAll()
                         .requestMatchers("/user").hasRole("USER")
                         .requestMatchers("/admin/pay").hasRole("ADMIN")
                         .requestMatchers("/admin/**").access(new WebExpressionAuthorizationManager("hasRole('ADMIN') or hasRole('SYS')"))
@@ -35,8 +39,12 @@ public class SecurityConfig {
                                 .passwordParameter("passwd")
                                 .loginProcessingUrl("/login_proc")
                                 .successHandler((request, response, authentication) -> {
-                                    System.out.println("authentication = " + authentication.getName());
-                                    response.sendRedirect("/");
+                                    RequestCache requestCache = new HttpSessionRequestCache();
+                                    SavedRequest savedRequest = requestCache.getRequest(request, response);
+                                    String redirectUrl = savedRequest.getRedirectUrl();
+                                    response.sendRedirect(redirectUrl);
+//                                    System.out.println("authentication = " + authentication.getName());
+//                                    response.sendRedirect("/");
                                 })
                                 .failureHandler((request, response, exception) -> {
                                     System.out.println("exception = " + exception.getMessage());
@@ -64,6 +72,13 @@ public class SecurityConfig {
                         .sessionFixation().changeSessionId()
                         .maximumSessions(1)
                         .maxSessionsPreventsLogin(false)
+                ).exceptionHandling((exceptionHandling) -> exceptionHandling
+//                        .authenticationEntryPoint((request, response, authException) -> {
+//                            response.sendRedirect("/login");
+//                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.sendRedirect("/denied");
+                        })
                 );
 
         return http.build();
